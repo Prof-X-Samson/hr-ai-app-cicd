@@ -46,8 +46,8 @@ def version_tuple(text):
 
 
 def check_tools():
-    if sys.version_info < (3, 10):
-        problem(f'Python {sys.version.split()[0]} is too old. Install Python 3.12.')
+    if sys.version_info < (3, 11):
+        problem(f'Python {sys.version.split()[0]} is too old. Install Python 3.12 or later.')
     try:
         import ensurepip, venv  # noqa: F401
     except ImportError:
@@ -145,6 +145,24 @@ def deployed_from_this_folder():
         return True  # Present but unreadable, for example locked by an editor: assume a rerun rather than block it.
 
 
+def check_bedrock_models(region, identity, chat_model):
+    supports_bedrock_check, _, _ = run(
+        'aws', 'bedrock', 'get-foundation-model-availability', '--generate-cli-skeleton', 'input')
+    if not supports_bedrock_check:
+        problem('AWS CLI is too old to check Bedrock model availability. Update to the latest AWS CLI version 2.')
+        return
+
+    models = {'amazon.titan-embed-text-v2:0', 'amazon.nova-lite-v1:0', chat_model}
+    for model in sorted(models):
+        ok, status, error = aws(region, 'bedrock', 'get-foundation-model-availability', '--model-id', model)
+        if not ok:
+            problem(f'Cannot check Bedrock model {model} in {region} ({error}).')
+        elif status.get('regionAvailability') != 'AVAILABLE':
+            problem(f'Bedrock model {model} is not offered in {region}. Use us-east-1.')
+        elif status.get('authorizationStatus') != 'AUTHORIZED':
+            problem(f'Bedrock model {model} is not enabled for account {identity["Account"]}. Request access in the Bedrock console under Model access.')
+
+
 def check_aws(tf):
     region = tf.get('aws_region') or 'us-east-1'
     project = tf.get('project_name', '')
@@ -155,14 +173,7 @@ def check_aws(tf):
 
     # The chat model can be an inference profile such as global.anthropic...; availability uses the base id.
     chat_model = re.sub(r'^(global|us|eu|apac)\.', '', tf.get('chat_model_id', 'amazon.nova-pro-v1:0'))
-    for model in sorted({'amazon.titan-embed-text-v2:0', 'amazon.nova-lite-v1:0', chat_model}):
-        ok, status, error = aws(region, 'bedrock', 'get-foundation-model-availability', '--model-id', model)
-        if not ok:
-            problem(f'Cannot check Bedrock model {model} in {region} ({error}).')
-        elif status.get('regionAvailability') != 'AVAILABLE':
-            problem(f'Bedrock model {model} is not offered in {region}. Use us-east-1.')
-        elif status.get('authorizationStatus') != 'AUTHORIZED':
-            problem(f'Bedrock model {model} is not enabled for account {identity["Account"]}. Request access in the Bedrock console under Model access.')
+    check_bedrock_models(region, identity, chat_model)
 
     domain = tf.get('domain_name', '').rstrip('.')
     if domain:
