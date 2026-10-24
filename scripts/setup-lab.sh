@@ -60,10 +60,15 @@ step() {
 skip() { printf '  %s✓%s %s %s(%s)%s\n' "$GREEN" "$RESET" "$1" "$YELLOW" "$2" "$RESET"; }
 trap 'printf "\n\n  Stopped. Run bash scripts/setup-lab.sh again to continue.\n"; exit 130' INT
 
-# Windows has a python3 placeholder that only opens the Microsoft Store, so test that it runs.
-if python3 -c '' 2>/dev/null; then PYTHON=python3
-elif python -c '' 2>/dev/null; then PYTHON=python
-else printf '  %s✗ Python not found.%s Install Python 3.12, then rerun.\n' "$RED" "$RESET"; exit 1; fi
+# Python 3.11 is required by the pinned Langfuse package. Skip Windows Store aliases and older interpreters.
+PYTHON=''
+for candidate in python3 python py; do
+  if "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))' 2>/dev/null; then
+    PYTHON=$candidate
+    break
+  fi
+done
+if [ -z "$PYTHON" ]; then printf '  %s✗ Compatible Python not found.%s Install Python 3.12 or later, then rerun.\n' "$RED" "$RESET"; exit 1; fi
 
 # A fingerprint of some input files, used to skip a step when they have not changed.
 fingerprint() { "$PYTHON" -c "import hashlib,sys;h=hashlib.sha256();[h.update(open(f,'rb').read()) for f in sys.argv[1:]];print(h.hexdigest())" "$@"; }

@@ -83,7 +83,7 @@ bash scripts/setup-lab.sh
 
 First the script checks your computer and your AWS account (`scripts/check-setup.py`):
 
-- **Tools:** Python 3.10 or later, AWS CLI version 2, Terraform 1.9 or later, and Node.js with `npm` from document 00. These are the lowest versions the script accepts. Terraform's comes from `required_version` in `infra/terraform/versions.tf`.
+- **Tools:** Python 3.11 or later, AWS CLI version 2, Terraform 1.9 or later, and Node.js with `npm` from document 00. These are the lowest versions the script accepts. Terraform's comes from `required_version` in `infra/terraform/versions.tf`.
 - **Settings:** both files from steps 3 and 4, and your Langfuse keys.
 - **AWS:** you are signed in to AWS in this terminal, the AI models are enabled for your account in Amazon Bedrock, and your `cognito_domain_prefix` is still free.
 
